@@ -12,6 +12,8 @@ using Microsoft.Extensions.Logging;
 using Serilog;
 using Azure.Core;
 using Serilog.Core;
+using System.Linq.Expressions;
+using System.Reflection.Metadata.Ecma335;
 
 namespace User_Authapi.Controllers
 {
@@ -42,7 +44,7 @@ namespace User_Authapi.Controllers
         {
 
             var requestId = HttpContext.TraceIdentifier;
-            _logger.LogInformation("Entered {Method} with args", nameof(GetUsers));
+            _logger.LogInformation("Request {requestId} : Entered {Method} with args", requestId , nameof(GetUsers));
 
             try
             {
@@ -52,7 +54,7 @@ namespace User_Authapi.Controllers
 
                 if (AllUsers is null || AllUsers.Count == 0)
                 {
-                    _logger.LogWarning("No Users found in the database");
+                    _logger.LogWarning("Request {requestId} : No Users found in the database" , requestId);
                     return NotFound();
                 }
 
@@ -62,7 +64,7 @@ namespace User_Authapi.Controllers
             }
             catch (Exception ex)
             {
-               _logger.LogError("Request {RequestId} : An error occured while fetching the users", requestId);
+               _logger.LogError( ex , "Request {RequestId} : An error occured while fetching the users", requestId);
                 return StatusCode(500, "Internal Server Error .");
             }
         }
@@ -85,13 +87,13 @@ namespace User_Authapi.Controllers
                 }
 
                 var userDto = new GetSingleUserDTO(User.Id, User.UserName, User.Email);
-                _logger.LogInformation("Request {requestId1} : The user with Id {Id} and UserName {UserName} hs been found" , requestId1 , Id, User.UserName);
+                _logger.LogInformation("Request {requestId1} : The user with Id {Id} and UserName {UserName} has been found" , requestId1 , Id, User.UserName);
 
                 return Ok(userDto);
              }
             catch(Exception ex)
             {
-                _logger.LogError("Request {RequestId} : An error occured while fetching the users", requestId1);
+                _logger.LogError(ex ,"Request {RequestId} : An error occurred while fetching the users", requestId1);
                 return StatusCode(500, "Internal Server Error");
             }
         }
@@ -113,7 +115,7 @@ namespace User_Authapi.Controllers
                 string hashedPassword = passwordHasher.HashPassword(new object(), newUser.Password);
 
                 //map the person entity to the newuserdto 
-                var userEntity = mapper.Map<Person>(newUser);
+                var userEntity = _mapper.Map<Person>(newUser);
                 userEntity.Password = hashedPassword;
                 userEntity.CreatedAt = DateTime.UtcNow;
 
@@ -133,15 +135,15 @@ namespace User_Authapi.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError("Request {RequestId} : Error while creating user ", requestId2);
-                return StatusCode(400, "Bad request");
+                _logger.LogError(ex ,"Request {RequestId} : Error while creating user ", requestId2);
+                return BadRequest(ex.Message);
             }
         }
         [HttpPut("{Id}")]
-        public async Task<IActionResult> UpdateUser(int Id, UpdateUserDTO updatedUser, IMapper mapper)
+        public async Task<IActionResult> UpdateUser(int Id, UpdateUserDTO updatedUser )
         {
             var requestId3 = HttpContext.TraceIdentifier;
-            _logger.LogInformation("Request {Request} : Method Entered {Method}. ", requestId3, nameof(UpdateUser));
+            _logger.LogInformation("Request {requestId3} : Method Entered {Method}. ", requestId3, nameof(UpdateUser));
 
             try
             {
@@ -160,7 +162,7 @@ namespace User_Authapi.Controllers
                 if (string.IsNullOrWhiteSpace(updatedUser.UserName))
                     return BadRequest("UserName is required.");
 
-                mapper.Map(updatedUser, UpdateUserEntity);
+                _mapper.Map(updatedUser, UpdateUserEntity);
 
                 var passwordHasher1 = new PasswordHasher<object>();
                 UpdateUserEntity.Password = passwordHasher1.HashPassword(new object(), updatedUser.Password);
@@ -174,11 +176,13 @@ namespace User_Authapi.Controllers
                     Email = updatedUser.Email
                 };
 
+                _logger.LogInformation("Request {requestId3} : User successfully updated .", requestId3);
+
                 return Ok(updatedResponse);
             }
             catch(Exception ex)
             {
-                _logger.LogError("Request {requestId3} : Error while Updating User with Id {Id}.", requestId3, Id);
+                _logger.LogError(ex ,"Request {requestId3} : Error while Updating User with Id {Id}.", requestId3, Id);
                 return BadRequest(ex.Message);
             }
         }
@@ -186,18 +190,24 @@ namespace User_Authapi.Controllers
         public async Task<IActionResult> PartialUpdate(int Id, PartialUpdateUserDTO partialUser)
         {
             var requestId4 = HttpContext.TraceIdentifier;
-            _logger.LogInformation("Request {requestId3} : Method Entered {Method} .", requestId4, nameof(PartialUpdate));
+            _logger.LogInformation("Request {requestId4} : Method Entered {Method} .", requestId4, nameof(PartialUpdate));
 
             try
             {
 
                 var partialUserEntity = await _context.Users.FirstOrDefaultAsync(p => Id == p.Id);
 
-                if (partialUserEntity is null)
-                    return NotFound("User not found.");
-
                 if (partialUser is null)
+                {
+                    _logger.LogError("Request {requestId4} : User with Id {Id} cannot be found", requestId4, Id);
                     return BadRequest("Request body is missing or invalid");
+                }
+
+                if (partialUserEntity is null)
+                {
+                    _logger.LogError("Request {requestId4} : User with Id {Id} cannot be found", requestId4, Id);
+                    return NotFound("User not found.");
+                }
 
                 if (partialUser.UserName is not null)
                     partialUserEntity.UserName = partialUser.UserName;
@@ -215,7 +225,10 @@ namespace User_Authapi.Controllers
                     partialUserEntity.Email = partialUser.Email;
 
                 if (partialUser.UserName is null && partialUser.Password is null && partialUser.Email is null)
+                {
+                    _logger.LogError("Request {requestId4} : No field was provided for update" , requestId4);
                     return BadRequest("At least one field must be provided for update.");
+                }
 
                 await _context.SaveChangesAsync();
 
@@ -224,80 +237,127 @@ namespace User_Authapi.Controllers
                     UserName = partialUserEntity.UserName,
                     Email = partialUserEntity.Email
                 };
+
+                _logger.LogInformation("Request {requestId4} : User successfully updated .", requestId4);
                 return Ok(partialresponse);
             }
             catch (Exception ex)
             {
-
+                _logger.LogError(ex, "Request {requestId4} : Error while updating User with Id {Id} ." , requestId4 , Id);
+                return BadRequest(ex.Message);
             }
         }
         [HttpDelete("softdelete/{Id}")]
         public async Task<IActionResult> SoftDelete(int Id)
-        { 
-           var deleteuserEntity = await _context.Users.FirstOrDefaultAsync(d => d.Id == Id);
+        {
+            var requestId5 = HttpContext.TraceIdentifier;
+            _logger.LogInformation("Request {requestId} : Endpoint {Method} Succesfully Queried .", requestId5, nameof(SoftDelete));
 
-           if (deleteuserEntity is null)
-                  return NotFound();
-
-           //sets a flag on the database thst is deleted 
-           deleteuserEntity.IsDeleted = true;
-           deleteuserEntity.DeletedAt = DateTime.UtcNow;
-
-            var deleteresponse = new HashExclusionDTO
+            try
             {
-                Id = deleteuserEntity.Id,
-                UserName = deleteuserEntity.UserName,
-                Email = deleteuserEntity.Email
-            };
+                var deleteuserEntity = await _context.Users.FirstOrDefaultAsync(d => d.Id == Id);
 
-          await _context.SaveChangesAsync();
+                if (deleteuserEntity is null)
+                {
+                    _logger.LogError("Request {requestId5} : Unable to find User with Id {Id} .", requestId5, Id);
+                    return NotFound();
+                }
 
-        return Ok(deleteresponse);
-        }
+                //sets a flag on the database thst is deleted 
+                deleteuserEntity.IsDeleted = true;
+                deleteuserEntity.DeletedAt = DateTime.UtcNow;
+
+                var deleteresponse = new HashExclusionDTO
+                {
+                    Id = deleteuserEntity.Id,
+                    UserName = deleteuserEntity.UserName,
+                    Email = deleteuserEntity.Email
+                };
+
+                await _context.SaveChangesAsync();
+                _logger.LogInformation("Request {requestId5} : User with Id {Id} Successfully deleted ." , requestId5 , Id);
+
+                return Ok(deleteresponse);
+            }
+            catch(Exception ex)
+            {
+                _logger.LogError(ex, "Request {requestId4} : Error in deleting User with Id {Id} .", requestId5, Id);
+                return BadRequest(ex.Message);
+            }
+          }
         [HttpDelete("hardDelete/{Id}")]
         public async Task<IActionResult> HardDelete(int Id)
         {
-            var HarddeleteEntity = await _context.Users.FirstOrDefaultAsync(h => h.Id == Id);
 
-            if (HarddeleteEntity is null)
-                return NotFound();
+            var requestId6 = HttpContext.TraceIdentifier;
+            _logger.LogInformation("Request {requestId5} : Endpoint {Method} Successfully Queried .", requestId6, nameof(HardDelete));
 
-            var hardresponse = new HashExclusionDTO
+            try
             {
-                Id = HarddeleteEntity.Id ,
-                Email = HarddeleteEntity.Email,
-                UserName= HarddeleteEntity.UserName
-            };
+                var HarddeleteEntity = await _context.Users.FirstOrDefaultAsync(h => h.Id == Id);
 
-            _context.Users.Remove(HarddeleteEntity);
+                if (HarddeleteEntity is null)
+                {
+                    _logger.LogError("Request {requestId6} : The User with Id {Id} cannot be found .", requestId6, Id);
+                    return NotFound();
+                }
 
-            await _context.SaveChangesAsync();
+                var hardresponse = new HashExclusionDTO
+                {
+                    Id = HarddeleteEntity.Id,
+                    Email = HarddeleteEntity.Email,
+                    UserName = HarddeleteEntity.UserName
+                };
 
-            return Ok(hardresponse);
+                _context.Users.Remove(HarddeleteEntity);
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Request {requestId6} : User with Id {Id} successfully deleted .", requestId6, Id);
+
+                return Ok(hardresponse);
+              }
+           catch(Exception ex)
+            {
+                _logger.LogError(ex , "Request {requestId6} : Error Deleting User With Id {Id} .", requestId6, Id);
+                return BadRequest(ex.Message);
+            }
         }
         [HttpPatch("restore/{Id}")]
-        public async Task<IActionResult> RestoreUser(int Id , RestoreUserDTO restoredUser)
+        public async Task<IActionResult> RestoreUser(int Id, RestoreUserDTO restoredUser)
         {
-            var restoreEntity = await _context.Users
-                .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(u => u.Id == Id && u.IsDeleted);
-                                      
-            if(restoreEntity is null)     
-                return NotFound();
+            var requestId7 = HttpContext.TraceIdentifier;
+            _logger.LogInformation("Request {requestId7} : Endpoint {Method} successfully Queried .", requestId7, nameof(RestoreUser));
 
-            restoreEntity.IsDeleted = false;
-            restoreEntity.RestoredAt = DateTime.UtcNow;
-
-            var restoreResponse = new HashExclusionDTO
+            try
             {
-                UserName = restoreEntity.UserName ,
-                Email = restoreEntity.Email 
-            };
+                var restoreEntity = await _context.Users
+                    .IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(u => u.Id == Id && u.IsDeleted);
 
-            await _context.SaveChangesAsync();
+                if (restoreEntity is null)
+                    return NotFound();
 
-            return Ok(restoreResponse);
-        }
+                restoreEntity.IsDeleted = false;
+                restoreEntity.RestoredAt = DateTime.UtcNow;
+
+                var restoreResponse = new HashExclusionDTO
+                {
+                    UserName = restoreEntity.UserName,
+                    Email = restoreEntity.Email
+                };
+
+                await _context.SaveChangesAsync();
+                _logger.LogInformation("Request {requestId7} : Successfully restored User .", requestId7);
+
+                return Ok(restoreResponse);
+              }
+            catch(Exception ex)
+            {
+                _logger.LogInformation(ex , "Request {requestId7} : Error while Restoring User .", requestId7);
+                return BadRequest(ex.Message);
+            }
+        } 
     }
 }
 
