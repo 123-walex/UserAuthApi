@@ -27,4 +27,4 @@ RUN dotnet publish "./User_Authapi.csproj" -c $BUILD_CONFIGURATION -o /app/publi
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "User_Authapi.dll"]
+ENTRYPOINT ["dotnet",  "User_Authapi.dll"]

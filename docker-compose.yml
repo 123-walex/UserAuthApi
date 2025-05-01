@@ -1,0 +1,10 @@
+version: '3.8' # Docker Compose file version
+
+services:
+  userauthapi:        # Service name (you can name it anything)
+    build:
+      context: .      # "." means current folder
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"   # Maps your PC's 8080 to container's 8080
+    container_name: container1
