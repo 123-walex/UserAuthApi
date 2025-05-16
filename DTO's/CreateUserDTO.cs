@@ -9,13 +9,13 @@ namespace User_Authapi.DTO_s
         public required string UserName { get; set; }
 
         [Required]
-        [StringLength(100, MinimumLength = 6, ErrorMessage = "PassWord is required")]
+        [StringLength(100, MinimumLength = 6, ErrorMessage = "Password is required")]
         [DataType(DataType.Password)]
         public required string Password { get; set; }
 
         [Required]
-        [StringLength(100, MinimumLength = 6, ErrorMessage = "Password is required")]
-        [DataType(DataType.EmailAddress)]
+        [StringLength(100, MinimumLength = 6, ErrorMessage = "Email is required")]
+        [EmailAddress]
         public required string Email { get; set; }
     }
 }

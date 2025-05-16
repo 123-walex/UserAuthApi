@@ -2,16 +2,19 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using User_Authapi.DTO_s;
-using User_Authapi.Data; 
+using User_Authapi.Data;
+using User_Authapi.Entities;
 
 namespace User_Authapi.Data
     {
         public class UsersDbcontext(DbContextOptions<UsersDbcontext> options) : DbContext(options)
         {
             public DbSet<Person> Users => Set<Person>();
+            public DbSet<UserSessions> UserSessions => Set<UserSessions>();
+            public DbSet<RefreshTokens> RefreshTokens { get; set; } = null!;
 
-            // this customizes how my entities maps to the database
-            protected override void OnModelCreating(ModelBuilder modelBuilder)
+        // this customizes how my entities maps to the database
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
             {
                 base.OnModelCreating(modelBuilder);
 
@@ -22,7 +25,15 @@ namespace User_Authapi.Data
 
             modelBuilder.Entity<Person>()
                     .HasQueryFilter(p => !p.IsDeleted);
- 
+
+            modelBuilder.Entity<UserSessions>()
+                       .HasKey(us => us.Id);
+
+            modelBuilder.Entity<UserSessions>()
+                .HasOne(us => us.User)
+                .WithMany(p => p.Sessions)
+                .HasForeignKey(us => us.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             var hashedPassword1 = "AQAAAAIAAYagAAAAELZsXLwYZc74iPl1YpZq9E31HbU1M8HBIUX1p5rfeM2MbYxq+vJXqXfsBQcOq1bYlw==";
             var hashedPassword2 = "AQAAAAIAAYagAAAAEM1eECxq3JHBoRxHJdSe+LRfkpRdn0+wxlmAGXxjP6u4bqpN28TmU7DD2chPb6heqA==";

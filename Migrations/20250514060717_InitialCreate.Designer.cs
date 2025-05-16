@@ -12,7 +12,7 @@ using User_Authapi.Data;
 namespace User_Authapi.Migrations
 {
     [DbContext(typeof(UsersDbcontext))]
-    [Migration("20250421083718_InitialCreate")]
+    [Migration("20250514060717_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -33,19 +33,21 @@ namespace User_Authapi.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<DateTime>("CreatedAt")
+                    b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Email")
+                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
                     b.Property<string>("Password")
+                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("RestoredAt")
@@ -55,6 +57,7 @@ namespace User_Authapi.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<string>("UserName")
+                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
@@ -89,6 +92,103 @@ namespace User_Authapi.Migrations
                             Password = "AQAAAAIAAYagAAAAENcXqWZsR2qRhf1O5H1jdfbwPQkY2u7S93z5WMr9ixgKeB3l0KkJ4Xb3KmUjDLQNDg==",
                             UserName = "elizabeth fagbemi"
                         });
+                });
+
+            modelBuilder.Entity("User_Authapi.Entities.RefreshTokens", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("Created")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByIp")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("Expires")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RefreshToken")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ReplacedByToken")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("Revoked")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RevokedByIp")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("RefreshTokens");
+                });
+
+            modelBuilder.Entity("User_Authapi.Entities.UserSessions", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("LoggedInAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("LoggedOutAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SessionToken")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("UserSessions");
+                });
+
+            modelBuilder.Entity("User_Authapi.Entities.RefreshTokens", b =>
+                {
+                    b.HasOne("User_Authapi.DTO_s.Person", "User")
+                        .WithMany("RefreshTokens")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("User_Authapi.Entities.UserSessions", b =>
+                {
+                    b.HasOne("User_Authapi.DTO_s.Person", "User")
+                        .WithMany("Sessions")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("User_Authapi.DTO_s.Person", b =>
+                {
+                    b.Navigation("RefreshTokens");
+
+                    b.Navigation("Sessions");
                 });
 #pragma warning restore 612, 618
         }
